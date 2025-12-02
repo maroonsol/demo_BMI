@@ -13,13 +13,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use dynamic imports like in the reference file
+    // Use dynamic imports for serverless compatibility
     const puppeteer = await import('puppeteer-core');
     const chromiumModule = await import('@sparticuz/chromium');
     const Chromium = chromiumModule.default;
     
     // Get executable path - this handles Chromium binary extraction
-    const executablePath: string = await Chromium.executablePath();
+    // The executablePath() method automatically extracts the binary if needed
+    const executablePath = await Chromium.executablePath();
     
     if (!executablePath) {
       throw new Error('Chromium executable path not found');
@@ -28,10 +29,17 @@ export async function POST(request: NextRequest) {
     // Launch the browser with proper serverless configuration
     // Chromium.args already includes all necessary flags for serverless
     const browser = await puppeteer.launch({
-                args: Chromium.args,
-                executablePath,
-                headless: true,
-              });
+      args: [
+        ...Chromium.args,
+        '--disable-gpu',
+        '--disable-dev-shm-usage',
+        '--disable-setuid-sandbox',
+        '--no-sandbox',
+      ],
+      executablePath,
+      headless: Chromium.headless,
+      defaultViewport: Chromium.defaultViewport,
+    });
 
     try {
       const page = await browser.newPage();

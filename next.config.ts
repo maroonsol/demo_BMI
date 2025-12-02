@@ -11,6 +11,8 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // Mark these packages as external to prevent bundling issues on Vercel
+  serverExternalPackages: ['puppeteer-core', '@sparticuz/chromium'],
 };
 
 export default nextConfig;
