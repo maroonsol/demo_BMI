@@ -506,6 +506,8 @@ export async function generatePDF(data: HealthData): Promise<Uint8Array> {
         args: ['--no-sandbox', '--disable-setuid-sandbox'],
       });
     } catch (error) {
+
+      console.log("error", error);
       // Fallback: try puppeteer-core with system Chrome
       const puppeteer = await import('puppeteer-core');
       const fs = await import('fs');
