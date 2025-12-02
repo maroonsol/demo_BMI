@@ -24,37 +24,38 @@ export async function POST(request: NextRequest) {
       const chromiumModule = await import('@sparticuz/chromium');
       const Chromium = chromiumModule.default;
       
-      // For Vercel/Lambda, use /tmp as the extraction directory (writable in serverless)
-      // The executablePath function will extract the Chromium binary from brotli files
-      const extractionPath = '/tmp/chromium';
-      
+      // The key fix: Don't pass extraction path to executablePath()
+      // Let it use its default behavior which should handle the brotli files automatically
+      // If brotli files aren't available, it will download Chromium
       let executablePath: string;
+      
       try {
-        // Get executable path - this will extract Chromium if needed
-        // The package should automatically find its brotli files in node_modules
-        executablePath = await Chromium.executablePath(extractionPath);
+        // First, try without specifying extraction path
+        // This allows the package to find its brotli files in node_modules
+        executablePath = await Chromium.executablePath();
+        console.log('Chromium executable path (default):', executablePath);
       } catch (error) {
-        console.error('Error getting Chromium executable path with extraction path:', error);
-        // Fallback: try without specifying extraction path (uses default /tmp location)
+        console.warn('Default Chromium path failed, trying with /tmp:', error);
+        // Fallback: try with /tmp extraction path
         try {
-          executablePath = await Chromium.executablePath();
+          executablePath = await Chromium.executablePath('/tmp/chromium');
+          console.log('Chromium executable path (/tmp):', executablePath);
         } catch (fallbackError) {
-          console.error('Fallback Chromium path also failed:', fallbackError);
-          // Last resort: provide more context in error
-          const errorMessage = error instanceof Error ? error.message : String(error);
-          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          console.error('All Chromium path attempts failed');
           throw new Error(
-            `Failed to get Chromium executable. First attempt: ${errorMessage}. Fallback: ${fallbackMessage}. ` +
-            `Make sure @sparticuz/chromium package files are included in deployment.`
+            `Failed to get Chromium executable. ` +
+            `The @sparticuz/chromium package may not be properly installed or its files may not be included in deployment. ` +
+            `Please ensure the package is in dependencies and not excluded from deployment. ` +
+            `Error: ${error instanceof Error ? error.message : String(error)}`
           );
         }
       }
       
       if (!executablePath) {
-        throw new Error('Chromium executable path not found');
+        throw new Error('Chromium executable path is null or undefined');
       }
       
-      console.log('Chromium executable path:', executablePath);
+      console.log('Launching browser with executable:', executablePath);
       
       browser = await puppeteer.launch({
         args: [
