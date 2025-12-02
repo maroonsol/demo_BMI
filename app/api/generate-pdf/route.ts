@@ -24,11 +24,37 @@ export async function POST(request: NextRequest) {
       const chromiumModule = await import('@sparticuz/chromium');
       const Chromium = chromiumModule.default;
       
-      const executablePath = await Chromium.executablePath();
+      // For Vercel/Lambda, use /tmp as the extraction directory (writable in serverless)
+      // The executablePath function will extract the Chromium binary from brotli files
+      const extractionPath = '/tmp/chromium';
+      
+      let executablePath: string;
+      try {
+        // Get executable path - this will extract Chromium if needed
+        // The package should automatically find its brotli files in node_modules
+        executablePath = await Chromium.executablePath(extractionPath);
+      } catch (error) {
+        console.error('Error getting Chromium executable path with extraction path:', error);
+        // Fallback: try without specifying extraction path (uses default /tmp location)
+        try {
+          executablePath = await Chromium.executablePath();
+        } catch (fallbackError) {
+          console.error('Fallback Chromium path also failed:', fallbackError);
+          // Last resort: provide more context in error
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : String(fallbackError);
+          throw new Error(
+            `Failed to get Chromium executable. First attempt: ${errorMessage}. Fallback: ${fallbackMessage}. ` +
+            `Make sure @sparticuz/chromium package files are included in deployment.`
+          );
+        }
+      }
       
       if (!executablePath) {
         throw new Error('Chromium executable path not found');
       }
+      
+      console.log('Chromium executable path:', executablePath);
       
       browser = await puppeteer.launch({
         args: [
@@ -37,6 +63,7 @@ export async function POST(request: NextRequest) {
           '--disable-dev-shm-usage',
           '--disable-setuid-sandbox',
           '--no-sandbox',
+          '--single-process',
         ],
         executablePath,
         headless: true,
