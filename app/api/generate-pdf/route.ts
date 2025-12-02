@@ -13,36 +13,55 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Use dynamic imports for serverless compatibility
-    const puppeteer = await import('puppeteer-core');
-    const chromiumModule = await import('@sparticuz/chromium');
-    const Chromium = chromiumModule.default;
+    // Detect environment - use puppeteer for local dev, puppeteer-core for production
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL;
     
-    // Get executable path - this handles Chromium binary extraction
-    // The executablePath() method automatically extracts the binary if needed
-    const executablePath = await Chromium.executablePath();
+    let browser;
     
-    if (!executablePath) {
-      throw new Error('Chromium executable path not found');
+    if (isProduction) {
+      // Production/serverless: use puppeteer-core with @sparticuz/chromium
+      const puppeteer = await import('puppeteer-core');
+      const chromiumModule = await import('@sparticuz/chromium');
+      const Chromium = chromiumModule.default;
+      
+      const executablePath = await Chromium.executablePath();
+      
+      if (!executablePath) {
+        throw new Error('Chromium executable path not found');
+      }
+      
+      browser = await puppeteer.launch({
+        args: [
+          ...Chromium.args,
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--disable-setuid-sandbox',
+          '--no-sandbox',
+        ],
+        executablePath,
+        headless: true,
+        defaultViewport: {
+          width: 1920,
+          height: 1080,
+        },
+      });
+    } else {
+      // Local development: use puppeteer (includes bundled Chromium)
+      const puppeteer = await import('puppeteer');
+      
+      browser = await puppeteer.launch({
+        headless: true,
+        args: [
+          '--disable-gpu',
+          '--disable-dev-shm-usage',
+          '--no-sandbox',
+        ],
+        defaultViewport: {
+          width: 1920,
+          height: 1080,
+        },
+      });
     }
-    
-    // Launch the browser with proper serverless configuration
-    // Chromium.args already includes all necessary flags for serverless
-    const browser = await puppeteer.launch({
-      args: [
-        ...Chromium.args,
-        '--disable-gpu',
-        '--disable-dev-shm-usage',
-        '--disable-setuid-sandbox',
-        '--no-sandbox',
-      ],
-      executablePath,
-      headless: true,
-      defaultViewport: {
-        width: 1920,
-        height: 1080,
-      },
-    });
 
     try {
       const page = await browser.newPage();
