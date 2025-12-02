@@ -18,11 +18,9 @@ export async function POST(request: NextRequest) {
     const puppeteer = require('puppeteer-core');
     const chromium = require('@sparticuz/chromium');
     
-    // Configure Chromium for Vercel
-    chromium.setGraphicsMode(false);
-    
+    // Configure Chromium for Vercel serverless environment
     const browser = await puppeteer.launch({
-      args: chromium.args,
+      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
       defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath(),
       headless: chromium.headless,
