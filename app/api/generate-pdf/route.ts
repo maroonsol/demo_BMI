@@ -27,12 +27,11 @@ export async function POST(request: NextRequest) {
     
     // Launch the browser with proper serverless configuration
     // Chromium.args already includes all necessary flags for serverless
-    const browser = await puppeteer.default.launch({
-      args: Chromium.args,
-      defaultViewport: Chromium.defaultViewport,
-      executablePath,
-      headless: Chromium.headless,
-    });
+    const browser = await puppeteer.launch({
+                args: Chromium.args,
+                executablePath,
+                headless: true,
+              });
 
     try {
       const page = await browser.newPage();
