@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateReportHTML, type HealthData } from '@/lib/pdf-generator';
-import puppeteer from 'puppeteer-core';
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,38 +13,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Configure for serverless (Vercel) or local development
-    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
+    // Use dynamic imports like in the reference file
+    const puppeteer = await import('puppeteer-core');
+    const chromiumModule = await import('@sparticuz/chromium');
+    const Chromium = chromiumModule.default;
+    const executablePath: string = await Chromium.executablePath();
     
-    let launchOptions: any = {
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
-    };
-
-    // For serverless environments, use @sparticuz/chromium
-    if (isServerless) {
-      const chromium = require('@sparticuz/chromium');
-      chromium.setGraphicsMode(false);
-      
-      launchOptions = {
-        args: chromium.args,
-        defaultViewport: chromium.defaultViewport,
-        executablePath: await chromium.executablePath(),
-        headless: chromium.headless,
-      };
-    } else {
-      // For local development, try to find Chrome/Chromium
-      // You can also set PUPPETEER_EXECUTABLE_PATH environment variable
-      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
-      if (executablePath) {
-        launchOptions.executablePath = executablePath;
-      }
-      // If no executablePath is set, puppeteer-core will try to use system Chrome
-      // Make sure Chrome/Chromium is installed on your system
-    }
-
     // Launch the browser and open a new blank page
-    const browser = await puppeteer.launch(launchOptions);
+    const browser = await puppeteer.default.launch({
+      args: Chromium.args,
+      executablePath,
+      headless: true,
+    });
 
     try {
       const page = await browser.newPage();
