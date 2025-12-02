@@ -11,6 +11,13 @@ const nextConfig: NextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // Exclude Chromium from bundling
+  webpack: (config, { isServer }) => {
+    if (isServer) {
+      config.externals = [...(config.externals || []), '@sparticuz/chromium', 'puppeteer-core'];
+    }
+    return config;
+  },
 };
 
 export default nextConfig;

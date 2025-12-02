@@ -19,10 +19,18 @@ export async function POST(request: NextRequest) {
     const chromium = require('@sparticuz/chromium');
     
     // Configure Chromium for Vercel serverless environment
+    // Get the executable path - this handles the Chromium binary extraction
+    const executablePath = await chromium.executablePath();
+    
+    if (!executablePath) {
+      throw new Error('Chromium executable path not found');
+    }
+    
+    // Configure Chromium args - chromium.args includes all necessary flags for serverless
     const browser = await puppeteer.launch({
-      args: [...chromium.args, '--hide-scrollbars', '--disable-web-security'],
+      args: chromium.args,
       defaultViewport: chromium.defaultViewport,
-      executablePath: await chromium.executablePath(),
+      executablePath: executablePath,
       headless: chromium.headless,
     });
 
