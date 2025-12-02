@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { generateReportHTML, type HealthData } from '@/lib/pdf-generator';
+import puppeteer from 'puppeteer-core';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,26 +14,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Launch Puppeteer browser
-    // Using puppeteer-core with @sparticuz/chromium for Vercel compatibility
-    const puppeteer = require('puppeteer-core');
-    const chromium = require('@sparticuz/chromium');
+    // Configure for serverless (Vercel) or local development
+    const isServerless = process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME;
     
-    // Configure Chromium for Vercel serverless environment
-    // Get the executable path - this handles the Chromium binary extraction
-    const executablePath = await chromium.executablePath();
-    
-    if (!executablePath) {
-      throw new Error('Chromium executable path not found');
+    let launchOptions: any = {
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    };
+
+    // For serverless environments, use @sparticuz/chromium
+    if (isServerless) {
+      const chromium = require('@sparticuz/chromium');
+      chromium.setGraphicsMode(false);
+      
+      launchOptions = {
+        args: chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: await chromium.executablePath(),
+        headless: chromium.headless,
+      };
+    } else {
+      // For local development, try to find Chrome/Chromium
+      // You can also set PUPPETEER_EXECUTABLE_PATH environment variable
+      const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH;
+      if (executablePath) {
+        launchOptions.executablePath = executablePath;
+      }
+      // If no executablePath is set, puppeteer-core will try to use system Chrome
+      // Make sure Chrome/Chromium is installed on your system
     }
-    
-    // Configure Chromium args - chromium.args includes all necessary flags for serverless
-    const browser = await puppeteer.launch({
-      args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
-      executablePath: executablePath,
-      headless: chromium.headless,
-    });
+
+    // Launch the browser and open a new blank page
+    const browser = await puppeteer.launch(launchOptions);
 
     try {
       const page = await browser.newPage();
@@ -80,7 +93,7 @@ export async function POST(request: NextRequest) {
       await browser.close();
 
       // Return PDF as response
-      return new NextResponse(pdfBuffer, {
+      return new NextResponse(Buffer.from(pdfBuffer), {
         headers: {
           'Content-Type': 'application/pdf',
           'Content-Disposition': `attachment; filename="Health_Report_${data.name.replace(/\s+/g, '_')}_${data.date.replace(/\s+/g, '_')}.pdf"`,
