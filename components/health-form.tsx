@@ -1,73 +1,162 @@
 'use client';
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { generatePDFReport, type HealthData } from '@/lib/pdf-generator';
 
-const healthFormSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  date: z.string().min(1, 'Date is required'),
-  age: z.number().min(1, 'Age must be at least 1').max(150, 'Age must be less than 150'),
-  gender: z.enum(['male', 'female'], {
-    message: 'Please select a gender',
-  }),
-  height: z.number().min(50, 'Height must be at least 50 cm').max(300, 'Height must be less than 300 cm'),
-  phone: z.string().min(10, 'Phone number must be at least 10 digits'),
-  email: z.string().email('Invalid email address'),
-  weight: z.number().min(10, 'Weight must be at least 10 kg').max(500, 'Weight must be less than 500 kg'),
-  bodyFat: z.number().min(0, 'Body fat must be at least 0%').max(100, 'Body fat cannot exceed 100%'),
-  visceralFat: z.number().min(0, 'Visceral fat must be at least 0'),
-  bmr: z.number().min(500, 'BMR must be at least 500').max(5000, 'BMR must be less than 5000'),
-  bmi: z.number().min(10, 'BMI must be at least 10').max(60, 'BMI must be less than 60'),
-  bodyAge: z.number().min(1, 'Body age must be at least 1').max(150, 'Body age must be less than 150'),
-  subcutaneousFat: z.number().min(0, 'Subcutaneous fat must be at least 0%').max(100, 'Subcutaneous fat cannot exceed 100%'),
-  skeletalMuscle: z.number().min(0, 'Skeletal muscle must be at least 0%').max(100, 'Skeletal muscle cannot exceed 100%'),
-});
+type HealthFormValues = {
+  name: string;
+  date: string;
+  age: number;
+  gender: 'male' | 'female';
+  height: number;
+  phone: string;
+  email: string;
+  weight: number;
+  bodyFat: number;
+  visceralFat: number;
+  bmr: number;
+  bmi: number;
+  bodyAge: number;
+  subcutaneousFat: number;
+  skeletalMuscle: number;
+};
 
-type HealthFormValues = z.infer<typeof healthFormSchema>;
+type FormErrors = Partial<Record<keyof HealthFormValues, string>>;
 
 export function HealthForm() {
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const form = useForm<HealthFormValues>({
-    resolver: zodResolver(healthFormSchema),
-    defaultValues: {
-      date: new Date().toISOString().split('T')[0],
-      gender: 'male',
-    },
+  const [formData, setFormData] = useState<HealthFormValues>({
+    name: '',
+    date: new Date().toISOString().split('T')[0],
+    age: 0,
+    gender: 'male',
+    height: 0,
+    phone: '',
+    email: '',
+    weight: 0,
+    bodyFat: 0,
+    visceralFat: 0,
+    bmr: 0,
+    bmi: 0,
+    bodyAge: 0,
+    subcutaneousFat: 0,
+    skeletalMuscle: 0,
   });
+  const [errors, setErrors] = useState<FormErrors>({});
 
-  const onSubmit = async (data: HealthFormValues) => {
+  const validateForm = (): boolean => {
+    const newErrors: FormErrors = {};
+
+    if (!formData.name.trim()) {
+      newErrors.name = 'Name is required';
+    }
+
+    if (!formData.date) {
+      newErrors.date = 'Date is required';
+    }
+
+    if (!formData.age || formData.age < 1 || formData.age > 150) {
+      newErrors.age = 'Age must be between 1 and 150';
+    }
+
+    if (!formData.gender) {
+      newErrors.gender = 'Please select a gender';
+    }
+
+    if (!formData.height || formData.height < 50 || formData.height > 300) {
+      newErrors.height = 'Height must be between 50 and 300 cm';
+    }
+
+    if (!formData.phone || formData.phone.length < 10) {
+      newErrors.phone = 'Phone number must be at least 10 digits';
+    }
+
+    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Invalid email address';
+    }
+
+    if (!formData.weight || formData.weight < 10 || formData.weight > 500) {
+      newErrors.weight = 'Weight must be between 10 and 500 kg';
+    }
+
+    if (formData.bodyFat < 0 || formData.bodyFat > 100) {
+      newErrors.bodyFat = 'Body fat must be between 0 and 100%';
+    }
+
+    if (formData.visceralFat < 0) {
+      newErrors.visceralFat = 'Visceral fat must be at least 0';
+    }
+
+    if (!formData.bmr || formData.bmr < 500 || formData.bmr > 5000) {
+      newErrors.bmr = 'BMR must be between 500 and 5000';
+    }
+
+    if (!formData.bmi || formData.bmi < 10 || formData.bmi > 60) {
+      newErrors.bmi = 'BMI must be between 10 and 60';
+    }
+
+    if (!formData.bodyAge || formData.bodyAge < 1 || formData.bodyAge > 150) {
+      newErrors.bodyAge = 'Body age must be between 1 and 150';
+    }
+
+    if (formData.subcutaneousFat < 0 || formData.subcutaneousFat > 100) {
+      newErrors.subcutaneousFat = 'Subcutaneous fat must be between 0 and 100%';
+    }
+
+    if (formData.skeletalMuscle < 0 || formData.skeletalMuscle > 100) {
+      newErrors.skeletalMuscle = 'Skeletal muscle must be between 0 and 100%';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleChange = (field: keyof HealthFormValues, value: string | number) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+    // Clear error for this field when user starts typing
+    if (errors[field]) {
+      setErrors((prev) => {
+        const newErrors = { ...prev };
+        delete newErrors[field];
+        return newErrors;
+      });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!validateForm()) {
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const healthData: HealthData = {
-        name: data.name,
-        date: new Date(data.date).toLocaleDateString('en-US', {
+        name: formData.name,
+        date: new Date(formData.date).toLocaleDateString('en-US', {
           year: 'numeric',
           month: 'long',
           day: 'numeric',
         }),
-        age: data.age,
-        gender: data.gender,
-        height: data.height,
-        phone: data.phone,
-        email: data.email,
-        weight: data.weight,
-        bodyFat: data.bodyFat,
-        visceralFat: data.visceralFat,
-        bmr: data.bmr,
-        bmi: data.bmi,
-        bodyAge: data.bodyAge,
-        subcutaneousFat: data.subcutaneousFat,
-        skeletalMuscle: data.skeletalMuscle,
+        age: formData.age,
+        gender: formData.gender,
+        height: formData.height,
+        phone: formData.phone,
+        email: formData.email,
+        weight: formData.weight,
+        bodyFat: formData.bodyFat,
+        visceralFat: formData.visceralFat,
+        bmr: formData.bmr,
+        bmi: formData.bmi,
+        bodyAge: formData.bodyAge,
+        subcutaneousFat: formData.subcutaneousFat,
+        skeletalMuscle: formData.skeletalMuscle,
       };
 
       // Generate PDF via API route
@@ -90,17 +179,18 @@ export function HealthForm() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Form onSubmit={form.handleSubmit(onSubmit)}>
+          <Form onSubmit={handleSubmit}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <FormItem>
                 <FormLabel htmlFor="name">Name *</FormLabel>
                 <Input
                   id="name"
-                  {...form.register('name')}
+                  value={formData.name}
+                  onChange={(e) => handleChange('name', e.target.value)}
                   placeholder="Enter your full name"
                 />
-                {form.formState.errors.name && (
-                  <FormMessage>{form.formState.errors.name.message}</FormMessage>
+                {errors.name && (
+                  <FormMessage>{errors.name}</FormMessage>
                 )}
               </FormItem>
 
@@ -109,10 +199,11 @@ export function HealthForm() {
                 <Input
                   id="date"
                   type="date"
-                  {...form.register('date')}
+                  value={formData.date}
+                  onChange={(e) => handleChange('date', e.target.value)}
                 />
-                {form.formState.errors.date && (
-                  <FormMessage>{form.formState.errors.date.message}</FormMessage>
+                {errors.date && (
+                  <FormMessage>{errors.date}</FormMessage>
                 )}
               </FormItem>
 
@@ -121,11 +212,12 @@ export function HealthForm() {
                 <Input
                   id="age"
                   type="number"
-                  {...form.register('age', { valueAsNumber: true })}
+                  value={formData.age || ''}
+                  onChange={(e) => handleChange('age', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter your age"
                 />
-                {form.formState.errors.age && (
-                  <FormMessage>{form.formState.errors.age.message}</FormMessage>
+                {errors.age && (
+                  <FormMessage>{errors.age}</FormMessage>
                 )}
               </FormItem>
 
@@ -133,15 +225,14 @@ export function HealthForm() {
                 <FormLabel htmlFor="gender">Gender *</FormLabel>
                 <Select
                   id="gender"
-                  {...form.register('gender')}
-                  value={form.watch('gender')}
-                  onChange={(e) => form.setValue('gender', e.target.value as 'male' | 'female')}
+                  value={formData.gender}
+                  onChange={(e) => handleChange('gender', e.target.value as 'male' | 'female')}
                 >
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                 </Select>
-                {form.formState.errors.gender && (
-                  <FormMessage>{form.formState.errors.gender.message}</FormMessage>
+                {errors.gender && (
+                  <FormMessage>{errors.gender}</FormMessage>
                 )}
               </FormItem>
 
@@ -151,11 +242,12 @@ export function HealthForm() {
                   id="height"
                   type="number"
                   step="0.1"
-                  {...form.register('height', { valueAsNumber: true })}
+                  value={formData.height || ''}
+                  onChange={(e) => handleChange('height', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter height in cm"
                 />
-                {form.formState.errors.height && (
-                  <FormMessage>{form.formState.errors.height.message}</FormMessage>
+                {errors.height && (
+                  <FormMessage>{errors.height}</FormMessage>
                 )}
               </FormItem>
 
@@ -165,11 +257,12 @@ export function HealthForm() {
                   id="weight"
                   type="number"
                   step="0.1"
-                  {...form.register('weight', { valueAsNumber: true })}
+                  value={formData.weight || ''}
+                  onChange={(e) => handleChange('weight', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter weight in kg"
                 />
-                {form.formState.errors.weight && (
-                  <FormMessage>{form.formState.errors.weight.message}</FormMessage>
+                {errors.weight && (
+                  <FormMessage>{errors.weight}</FormMessage>
                 )}
               </FormItem>
 
@@ -178,11 +271,12 @@ export function HealthForm() {
                 <Input
                   id="phone"
                   type="tel"
-                  {...form.register('phone')}
+                  value={formData.phone}
+                  onChange={(e) => handleChange('phone', e.target.value)}
                   placeholder="Enter your phone number"
                 />
-                {form.formState.errors.phone && (
-                  <FormMessage>{form.formState.errors.phone.message}</FormMessage>
+                {errors.phone && (
+                  <FormMessage>{errors.phone}</FormMessage>
                 )}
               </FormItem>
 
@@ -191,11 +285,12 @@ export function HealthForm() {
                 <Input
                   id="email"
                   type="email"
-                  {...form.register('email')}
+                  value={formData.email}
+                  onChange={(e) => handleChange('email', e.target.value)}
                   placeholder="Enter your email address"
                 />
-                {form.formState.errors.email && (
-                  <FormMessage>{form.formState.errors.email.message}</FormMessage>
+                {errors.email && (
+                  <FormMessage>{errors.email}</FormMessage>
                 )}
               </FormItem>
 
@@ -205,11 +300,12 @@ export function HealthForm() {
                   id="bmi"
                   type="number"
                   step="0.1"
-                  {...form.register('bmi', { valueAsNumber: true })}
+                  value={formData.bmi || ''}
+                  onChange={(e) => handleChange('bmi', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter BMI"
                 />
-                {form.formState.errors.bmi && (
-                  <FormMessage>{form.formState.errors.bmi.message}</FormMessage>
+                {errors.bmi && (
+                  <FormMessage>{errors.bmi}</FormMessage>
                 )}
               </FormItem>
 
@@ -219,11 +315,12 @@ export function HealthForm() {
                   id="bodyFat"
                   type="number"
                   step="0.1"
-                  {...form.register('bodyFat', { valueAsNumber: true })}
+                  value={formData.bodyFat || ''}
+                  onChange={(e) => handleChange('bodyFat', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter body fat percentage"
                 />
-                {form.formState.errors.bodyFat && (
-                  <FormMessage>{form.formState.errors.bodyFat.message}</FormMessage>
+                {errors.bodyFat && (
+                  <FormMessage>{errors.bodyFat}</FormMessage>
                 )}
               </FormItem>
 
@@ -233,11 +330,12 @@ export function HealthForm() {
                   id="visceralFat"
                   type="number"
                   step="0.1"
-                  {...form.register('visceralFat', { valueAsNumber: true })}
+                  value={formData.visceralFat || ''}
+                  onChange={(e) => handleChange('visceralFat', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter visceral fat level"
                 />
-                {form.formState.errors.visceralFat && (
-                  <FormMessage>{form.formState.errors.visceralFat.message}</FormMessage>
+                {errors.visceralFat && (
+                  <FormMessage>{errors.visceralFat}</FormMessage>
                 )}
               </FormItem>
 
@@ -247,11 +345,12 @@ export function HealthForm() {
                   id="subcutaneousFat"
                   type="number"
                   step="0.1"
-                  {...form.register('subcutaneousFat', { valueAsNumber: true })}
+                  value={formData.subcutaneousFat || ''}
+                  onChange={(e) => handleChange('subcutaneousFat', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter subcutaneous fat percentage"
                 />
-                {form.formState.errors.subcutaneousFat && (
-                  <FormMessage>{form.formState.errors.subcutaneousFat.message}</FormMessage>
+                {errors.subcutaneousFat && (
+                  <FormMessage>{errors.subcutaneousFat}</FormMessage>
                 )}
               </FormItem>
 
@@ -261,11 +360,12 @@ export function HealthForm() {
                   id="skeletalMuscle"
                   type="number"
                   step="0.1"
-                  {...form.register('skeletalMuscle', { valueAsNumber: true })}
+                  value={formData.skeletalMuscle || ''}
+                  onChange={(e) => handleChange('skeletalMuscle', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter skeletal muscle percentage"
                 />
-                {form.formState.errors.skeletalMuscle && (
-                  <FormMessage>{form.formState.errors.skeletalMuscle.message}</FormMessage>
+                {errors.skeletalMuscle && (
+                  <FormMessage>{errors.skeletalMuscle}</FormMessage>
                 )}
               </FormItem>
 
@@ -275,11 +375,12 @@ export function HealthForm() {
                   id="bmr"
                   type="number"
                   step="0.1"
-                  {...form.register('bmr', { valueAsNumber: true })}
+                  value={formData.bmr || ''}
+                  onChange={(e) => handleChange('bmr', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter BMR in kcal/day"
                 />
-                {form.formState.errors.bmr && (
-                  <FormMessage>{form.formState.errors.bmr.message}</FormMessage>
+                {errors.bmr && (
+                  <FormMessage>{errors.bmr}</FormMessage>
                 )}
               </FormItem>
 
@@ -288,11 +389,12 @@ export function HealthForm() {
                 <Input
                   id="bodyAge"
                   type="number"
-                  {...form.register('bodyAge', { valueAsNumber: true })}
+                  value={formData.bodyAge || ''}
+                  onChange={(e) => handleChange('bodyAge', e.target.value ? parseFloat(e.target.value) : 0)}
                   placeholder="Enter body age"
                 />
-                {form.formState.errors.bodyAge && (
-                  <FormMessage>{form.formState.errors.bodyAge.message}</FormMessage>
+                {errors.bodyAge && (
+                  <FormMessage>{errors.bodyAge}</FormMessage>
                 )}
               </FormItem>
             </div>
