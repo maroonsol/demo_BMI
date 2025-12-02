@@ -17,13 +17,21 @@ export async function POST(request: NextRequest) {
     const puppeteer = await import('puppeteer-core');
     const chromiumModule = await import('@sparticuz/chromium');
     const Chromium = chromiumModule.default;
+    
+    // Get executable path - this handles Chromium binary extraction
     const executablePath: string = await Chromium.executablePath();
     
-    // Launch the browser and open a new blank page
+    if (!executablePath) {
+      throw new Error('Chromium executable path not found');
+    }
+    
+    // Launch the browser with proper serverless configuration
+    // Chromium.args already includes all necessary flags for serverless
     const browser = await puppeteer.default.launch({
       args: Chromium.args,
+      defaultViewport: Chromium.defaultViewport,
       executablePath,
-      headless: true,
+      headless: Chromium.headless,
     });
 
     try {
