@@ -14,11 +14,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Launch Puppeteer browser
-    // Using require to avoid TypeScript module resolution issues in Next.js
-    const puppeteer = require('puppeteer');
+    // Using puppeteer-core with @sparticuz/chromium for Vercel compatibility
+    const puppeteer = require('puppeteer-core');
+    const chromium = require('@sparticuz/chromium');
+    
+    // Configure Chromium for Vercel
+    chromium.setGraphicsMode(false);
+    
     const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath(),
+      headless: chromium.headless,
     });
 
     try {
