@@ -37,8 +37,11 @@ export async function POST(request: NextRequest) {
         '--no-sandbox',
       ],
       executablePath,
-      headless: Chromium.headless,
-      defaultViewport: Chromium.defaultViewport,
+      headless: true,
+      defaultViewport: {
+        width: 1920,
+        height: 1080,
+      },
     });
 
     try {
